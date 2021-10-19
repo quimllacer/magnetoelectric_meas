@@ -19,7 +19,6 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 
 from general_functions import new_datefolder
-from data_analysis import analyze
 from keithley6517_commands import KEITHLEY6517
 from osensapy import osensapy
 from cpx400sp import CPX400SP
@@ -30,10 +29,10 @@ def main():
     # Set parameters
     # *********************************************************************************
     sample_identification = "test"
-    loop_time = 60*1  # Time that current vs temperature will be measured.
+    loop_time = 60  # Time that current vs temperature will be measured.
     # CPX Voltage function
     volt_ampl = 22.3
-    volt_freq = 0.1
+    volt_freq = 0.05
     # Keithley
     current_range = 20E-9 # Upper current range limit.
     nplcycles = 1 # Integration period based on power line frequency (0.01-10)
@@ -43,9 +42,9 @@ def main():
     assert volt_ampl <= 23
 
     # Initiate communication with the devices
-    k = KEITHLEY6517("ASRL/dev/ttyUSB1::INSTR", baud_rate = 19200, sleep = 0.05)
+    k = KEITHLEY6517("ASRL/dev/ttyUSB2::INSTR", baud_rate = 19200, sleep = 0.05)
     cpx = CPX400SP('192.168.1.131', 9221)
-    transmitter = osensapy.Transmitter("COM3", 247)
+    transmitter = osensapy.Transmitter("/dev/ttyUSB0", 247)
 
     # Functions
     def setup_keithley(current_range, nplcycles, average_window):
