@@ -24,7 +24,6 @@ from keithley6517_commands import KEITHLEY6517
 from osensapy import osensapy
 from cpx400sp import CPX400SP
 
-
 def main():
 
     # Set parameters
