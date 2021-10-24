@@ -28,11 +28,11 @@ def main():
 
     # Set parameters
     # *********************************************************************************
-    sample_identification = "test"
-    loop_time = 60  # Time that current vs temperature will be measured.
+    sample_identification = "depoled PVDF with copper foil inverted polarization"
+    loop_time = 120  # Time that current vs temperature will be measured.
     # CPX Voltage function
     volt_ampl = 22.3
-    volt_freq = 0.05
+    volt_freq = 0.025
     # Keithley
     current_range = 20E-9 # Upper current range limit.
     nplcycles = 1 # Integration period based on power line frequency (0.01-10)
@@ -168,10 +168,10 @@ def main():
     # Save the data
     df = pd.DataFrame(data, columns = ["current",
                                        "time",
+                                       "cpx_curr",
                                        "osensa_temp",
                                        "cpx_target_voltage",
-                                       "cpx_volt",
-                                       "cpx_curr"])
+                                       "cpx_volt"])
     df = df[["time",
              "current",
              "osensa_temp",
