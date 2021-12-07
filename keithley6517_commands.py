@@ -52,6 +52,14 @@ class KEITHLEY6517:
     def current_range(self, crange):
         self.keithley6517.write('current:range {}'.format(crange)) #Select current range upper limit
         time.sleep(self.sleep) # Wait
+    def voltage_range(self, vrange):
+        self.keithley6517.write('voltage:range {}'.format(vrange)) #Select voltage range upper limit
+        time.sleep(self.sleep) # Wait
+        
+    # Voltage guard
+    def voltage_guard_state(self, state):
+        self.keithley6517.write('voltage:guard {}'.format(state)) # Set ON or OFF voltage guard
+        time.sleep(self.sleep) # Wait
 
     # Voltage source
     def vsource_limit_state(self, state):
@@ -74,6 +82,9 @@ class KEITHLEY6517:
     def current_nplcycles(self, nplcycles):
         self.keithley6517.write('current:nplcycles {}'.format(nplcycles)) #Integration period based on power line frequency (0.01-10)
         time.sleep(self.sleep) # Wait
+    def voltage_nplcycles(self, nplcycles):
+        self.keithley6517.write('voltage:nplcycles {}'.format(nplcycles)) #Integration period based on power line frequency (0.01-10)
+        time.sleep(self.sleep) # Wait
     def system_pwrlinesync(self, state):
         self.keithley6517.write('system:lsync:state {}'.format(state)) # Enables power line synchronisation.
         time.sleep(self.sleep) # Wait
@@ -91,6 +102,18 @@ class KEITHLEY6517:
     def current_average_count(self, count):
         self.keithley6517.write('current:average:count {}'.format(count)) # Set average filter window: 1-100
         time.sleep(self.sleep) # Wait
+    def voltage_average_state(self, state):
+        self.keithley6517.write('voltage:average:state {}'.format(state)) #Switch ON or OFF the filter
+        time.sleep(self.sleep) # Wait
+    def voltage_average_type(self, typ):
+        self.keithley6517.write('voltage:average:type {}'.format(typ)) # Set average filter type: none, scalar or advanced
+        time.sleep(self.sleep) # Wait
+    def voltage_average_tcontrol(self, tcontrol):
+        self.keithley6517.write('voltage:average:tcontrol {}'.format(tcontrol)) # Set average filter type: moving or repeat
+        time.sleep(self.sleep) # Wait
+    def voltage_average_count(self, count):
+        self.keithley6517.write('voltage:average:count {}'.format(count)) # Set average filter window: 1-100
+        time.sleep(self.sleep) # Wait
 
     # Median filter
     def current_median_state(self, state):
@@ -99,10 +122,19 @@ class KEITHLEY6517:
     def current_median_rank(self, rank):
         self.keithley6517.write('current:median:rank {}'.format(rank)) # Set average filter type: none, scalar or advanced
         time.sleep(self.sleep) # Wait
+    def voltage_median_state(self, state):
+        self.keithley6517.write('voltage:median:state {}'.format(state)) #Switch ON or OFF the filter
+        time.sleep(self.sleep) # Wait
+    def voltage_median_rank(self, rank):
+        self.keithley6517.write('voltage:median:rank {}'.format(rank)) # Set average filter type: none, scalar or advanced
+        time.sleep(self.sleep) # Wait
 
     # Resolution
     def current_digits(self, digits):
         self.keithley6517.write('current:digits {}'.format(digits)) # Specify n of digits shown from 4 to 7
+        time.sleep(self.sleep) # Wait
+    def voltage_digits(self, digits):
+        self.keithley6517.write('voltage:digits {}'.format(digits)) # Specify n of digits shown from 4 to 7
         time.sleep(self.sleep) # Wait
 
     # Configure timestamp
@@ -163,7 +195,9 @@ class KEITHLEY6517:
     def status_queue_next(self, header):
         reading = self.keithley6517.query('status:queue:next?') # Read the most recent error messsage.
         time.sleep(self.sleep) # Wait
-        print("{} error in:    {}".format(reading.replace("\n", ""), header))
+        msg = "{} error in:    {}".format(reading.replace("\n", ""), header)
+        print(msg)
+        assert "No Error" in msg, "Setup error of Keithley6517: " + msg
     def read_latest(self):
         reading = self.keithley6517.query('read?') # Initialize and return latest reading
         return list(np.fromstring(reading, sep=','))

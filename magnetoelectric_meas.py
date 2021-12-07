@@ -19,7 +19,6 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 
 from general_functions import new_datefolder
-from data_analysis import analyze
 from keithley6517_commands import KEITHLEY6517
 from osensapy import osensapy
 from cpx400sp import CPX400SP
@@ -28,45 +27,87 @@ def main():
 
     # Set parameters
     # *********************************************************************************
-    sample_identification = "test"
-    loop_time = 60*1  # Time that current vs temperature will be measured.
+    sample_identification = "pvdf_iotd_50mg_0.01Hz_flipped_IR473"
+    loop_time = 200  # Time (s) that current vs temperature will be measured.
     # CPX Voltage function
     volt_ampl = 22.3
-    volt_freq = 0.1
+    volt_freq = 0.01
     # Keithley
-    current_range = 20E-9 # Upper current range limit.
+    meas_mode = "current" #Measuring mode: "current" or "voltage"
+    current_range = 200E-9 # Upper current range limit.
+    voltage_range = 2 # Upper current range limit.
     nplcycles = 1 # Integration period based on power line frequency (0.01-10)
     average_window = 0 # Average filter window
+    
     # *********************************************************************************
     # Safety
     assert volt_ampl <= 23
 
     # Initiate communication with the devices
-    k = KEITHLEY6517("ASRL/dev/ttyUSB1::INSTR", baud_rate = 19200, sleep = 0.05)
+    k = KEITHLEY6517("ASRL/dev/ttyUSB2::INSTR", baud_rate = 19200, sleep = 0.05)
     cpx = CPX400SP('192.168.1.131', 9221)
-    transmitter = osensapy.Transmitter("COM3", 247)
+    transmitter = osensapy.Transmitter("/dev/ttyUSB0", 247)
 
     # Functions
-    def setup_keithley(current_range, nplcycles, average_window):
+    def setup_keithley(meas_mode, current_range, voltage_range, nplcycles, average_window):
         # Reset device to defaults
         k.reset()
         k.clear_reg()
         k.status_queue_next("Reset")
+        
+        if meas_mode == "voltage":
+            # Select sensing function
+            k.sense_function("'voltage'")
+            k.status_queue_next("Sensing function")
+            
+            # Voltage guard
+            k.voltage_guard_state("OFF")
+            k.status_queue_next("Voltage guard")
+            
+            # Zero correct
+            k.voltage_range(2)
+            k.system_zcorrect("ON")
+            k.status_queue_next("Zero correct")
+            
+            # Select measurement range of interest
+            k.voltage_range(voltage_range)
+            k.system_zcheck("OFF")
+            k.status_queue_next("Voltage range")
+            
+            # Median filter
+            k.voltage_median_state("ON")
+            k.voltage_median_rank(1)
+            k.status_queue_next("Median filter")
+            
+        elif meas_mode == "current":
+            
+            # Select sensing function
+            k.sense_function("'current'")
+            k.status_queue_next("Sensing function")
 
-        # Select sensing function
-        k.sense_function("'current'")
-        k.status_queue_next("Sensing function")
+            # Zero correct
+            k.current_range(20E-12)
+            k.system_zcorrect("ON")
+            k.status_queue_next("Zero correct")
 
-        # Zero correct
-        k.current_range(20E-12)
-        k.system_zcorrect("ON")
-        k.status_queue_next("Zero correct")
+            # Select measurement range of interest
+            k.current_range(current_range)
+            k.system_zcheck("OFF")
+            k.status_queue_next("Current range")
 
-        # Select measurement range of interest
-        k.current_range(current_range)
-        k.system_zcheck("OFF")
-        k.status_queue_next("Current range")
+            # Median filter
+            k.current_median_state("ON")
+            k.current_median_rank(1)
+            k.status_queue_next("Median filter")
 
+            # Average filter
+            if average_window != 0:
+                k.current_average_state("OFF")
+                k.current_average_type("scalar")
+                k.current_average_tcontrol("repeat")
+                k.current_average_count(average_window)
+                k.status_queue_next("Average filter")
+            
         # Integration time
         k.current_nplcycles(nplcycles)
         k.system_pwrlinesync("OFF")
@@ -78,19 +119,6 @@ def main():
         k.system_tstamp_format("absolute")
         k.status_queue_next("Timestamp")
 
-        # Median filter
-        k.current_median_state("ON")
-        k.current_median_rank(1)
-        k.status_queue_next("Median filter")
-
-        # Average filter
-        if average_window != 0:
-            k.current_average_state("OFF")
-            k.current_average_type("scalar")
-            k.current_average_tcontrol("repeat")
-            k.current_average_count(average_window)
-            k.status_queue_next("Average filter")
-
         # External temperature
         k.system_tscontrol("ON")
         k.status_queue_next("External temperature")
@@ -101,6 +129,7 @@ def main():
 
         # Timeout
         k.pyvisa_timeout(10000) # In milliseconds
+        
     def counter(seconds, message, delay = 1):
         start_time = time.time()
         while time.time() - start_time <= seconds:
@@ -129,7 +158,7 @@ def main():
     cpx.set_current(20)
     cpx.set_voltage(0)
     print("Setting up the electrometer...")
-    setup_keithley(current_range = current_range, nplcycles = 1, average_window = average_window)
+    setup_keithley(meas_mode = meas_mode, current_range = current_range, voltage_range = voltage_range, nplcycles = 1, average_window = average_window)
     k.system_tstamp_relative_reset()
     print("Finished setup, ready to start measurement.")
 
@@ -166,27 +195,32 @@ def main():
                                                sample_identification)
     file_name = new_datefolder("../data") + name
     # Save the data
-    df = pd.DataFrame(data, columns = ["current",
+    df = pd.DataFrame(data, columns = [meas_mode,
                                        "time",
+                                       "cpx_curr",
                                        "osensa_temp",
                                        "cpx_target_voltage",
-                                       "cpx_volt",
-                                       "cpx_curr"])
+                                       "cpx_volt"])
     df = df[["time",
-             "current",
+             meas_mode,
              "osensa_temp",
              "cpx_target_voltage",
              "cpx_volt",
              "cpx_curr"]]
     #df = df.rolling(window = 5, min_periods = 5, axis = 0).mean()
     #df.to_csv('test.csv', header=False, index=False)
+    if meas_mode == "current":
+        df["current"] = df["current"]*1e9
+    elif meas_mode == "voltage":
+        df["voltage"] = df["voltage"]*1e3
+    
     df.to_excel('{}.xlsx'.format(file_name))
 
 
     # Print statistics
     print("######################################################################")
     reading_period(df, "time")
-    print("Measured current mean: {}    std: {}".format(df.current.mean(), df.current.std()))
+    print("Measured current OR voltage mean: {}    std: {}".format(df[meas_mode].mean(), df[meas_mode].std()))
     print("######################################################################")
     print("File name: " + file_name)
 
